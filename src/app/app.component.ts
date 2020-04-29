@@ -154,8 +154,8 @@ export class AppComponent implements OnInit {
       if (Math.abs(this.currentAngle) >= this.currentMaxAngle) {
         this.aDelta = 0;
         // this.aDelta = -this.aDelta;
-        this.currentMaxAngle *= 0.8;
-        this.Vcoef *= 0.8;
+        this.currentMaxAngle *= 0.9;
+        this.Vcoef *= 0.9;
         this.bool = false;
       }
     }
