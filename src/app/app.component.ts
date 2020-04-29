@@ -139,7 +139,6 @@ export class AppComponent implements OnInit {
     ball.position.y = 50 - 50 * Math.cos(this.currentAngle);
 
     this.currentAngle += this.aDelta;
-    this.aDelta += Math.sign(this.currentAngle) * 0.01;
     this.deltaX += Math.abs(this.aDelta);
     this.currentV += Math.sign(this.currentAngle) * Math.sqrt(Math.pow(-9.81 * 1.1, 2) + Math.pow(0.1 * 9.81 * Math.cos(this.currentAngle), 2));
     if (Math.abs(this.currentAngle) >= Math.PI / 2) {
