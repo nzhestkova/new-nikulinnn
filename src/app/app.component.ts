@@ -1,4 +1,4 @@
-import { Component, OnInit } from "@angular/core";
+import { Component, HostListener, OnInit } from "@angular/core";
 import * as dat from "dat.gui";
 import {
   AxesHelper, BoxGeometry, CircleGeometry, Color, CylinderGeometry, Fog, Mesh, MeshBasicMaterial, MeshPhongMaterial, MeshStandardMaterial,
@@ -21,6 +21,14 @@ export class AppComponent implements OnInit {
   scene: Scene;
   axes: AxesHelper;
   webGLOutput: HTMLCanvasElement;
+
+  // используемые переменные
+  currentAngle = -Math.PI / 2;
+  currentMaxAngle = Math.PI / 2;
+  deltaX = 0;
+  currentV = 0;
+  aDelta = 0.01;
+  // конец
 
   colors = [
     "brown",
@@ -49,13 +57,21 @@ export class AppComponent implements OnInit {
     ballGeneratingSpeed: number;
   };
 
+  wallControls: {
+    aboveGround: number;
+    wallFar: number;
+    vertAngle: number;
+    horizAngle: number;
+    LRPosition: number;
+  };
+
   ballRadius: number;
   balls: Ball[];
   ballsIDCounter: number;
 
   groundInit(): void {
     const circleGeometry = new CircleGeometry(window.innerWidth);
-    const circleMaterial = new MeshPhongMaterial({color: 0x554C3A});
+    const circleMaterial = new MeshBasicMaterial({color: 0x838581});
     this.ground = new Mesh(circleGeometry, circleMaterial);
     this.ground.rotation.x = -0.5 * Math.PI;
     this.ground.position.x = 0;
@@ -68,14 +84,14 @@ export class AppComponent implements OnInit {
 
   lightInit(): void {
     this.light = new PointLight(0xADA9A1, 1.7, Infinity);
-    this.light.position.set(0, 200, 0);
-    this.light.receiveShadow = true;
+    this.light.position.set(0, 100, 0);
+    // this.light.receiveShadow = true;
     this.light.castShadow = true;
     this.scene.add(this.light);
   }
 
   orbitControlsInit(): void {
-    this.orbitControls.target = new Vector3(100, 0, 0);
+    this.orbitControls.target = new Vector3(0, 0, 0);
     this.orbitControls.maxPolarAngle = Math.PI / 2;
     this.orbitControls.update();
   }
@@ -93,15 +109,15 @@ export class AppComponent implements OnInit {
 
   init(): void {
     this.scene = new Scene();
-    this.scene.fog = new Fog(0xCBCBCB, 200, 700);
+    // this.scene.fog = new Fog(0xCBCBCB, 200, 700);
     this.scene.background = new Color(0xCBCBCB);
     this.camera = new PerspectiveCamera(45,
       window.innerWidth / window.innerHeight, 0.1, 1000);
-    this.camera.position.x = 100;
-    this.camera.position.y = 30;
+    this.camera.position.x = 0;
+    this.camera.position.y = 70;
     this.camera.position.z = 200;
     this.axes = new AxesHelper(1000);
-    // this.scene.add(this.axes);
+    this.scene.add(this.axes);
     this.webGLOutput = <HTMLCanvasElement> document.getElementById("WebGL-Output");
     this.renderer = new WebGLRenderer({canvas: this.webGLOutput});
     this.renderer.shadowMap.enabled = true;
@@ -116,23 +132,20 @@ export class AppComponent implements OnInit {
       this.camera.aspect = canvas.clientWidth / canvas.clientHeight;
       this.camera.updateProjectionMatrix();
     }
-    const wall = this.scene.getObjectByName(`wall`);
-    wall.position.x = this.controls.wallFar;
-    this.balls.forEach((ball) => {
-      ball.collision(new Vector3(wall.position.x - 2, wall.position.y - this.controls.wallLength, wall.position.z - this.controls.wallDepth),
-        new Vector3(wall.position.x + 2, wall.position.y + this.controls.wallLength, wall.position.z + this.controls.wallDepth));
-      ball.animate();
-    });
 
-    this.scene.getObjectByName(`startPoint`).rotation.z = -this.controls.horizontalAngle * Math.PI / 180;
-    this.scene.getObjectByName(`vertLine`).rotation.z = (90 + this.controls.startAngle) * Math.PI / 180;
-    if (this.controls.startAngle === 0) {
-      this.scene.getObjectByName(`vertLine`).rotation.z = (90 + this.controls.startAngle) * Math.PI / 180 + Math.PI / 720;
+    // движение шарика
+    const ball = this.scene.getObjectByName("ball");
+    ball.position.x = -50 - 50 * Math.sin(this.currentAngle);
+    ball.position.y = 50 - 50 * Math.cos(this.currentAngle);
+
+    this.currentAngle += this.aDelta;
+    this.aDelta += Math.sign(this.currentAngle) * 0.01;
+    this.deltaX += Math.abs(this.aDelta);
+    this.currentV += Math.sign(this.currentAngle) * Math.sqrt(Math.pow(-9.81 * 1.1, 2) + Math.pow(0.1 * 9.81 * Math.cos(this.currentAngle), 2));
+    if (Math.abs(this.currentAngle) >= Math.PI / 2) {
+      this.aDelta = -this.aDelta;
     }
-    if (this.controls.startAngle === 180) {
-      this.scene.getObjectByName(`vertLine`).rotation.z = (90 + this.controls.startAngle) * Math.PI / 180 - Math.PI / 720;
-    }
-    this.scene.getObjectByName(`horizLine`).rotation.y = this.controls.startAngle >= 90 ? Math.PI / 180 : -Math.PI / 720;
+    // конец
 
     requestAnimationFrame(this.animate.bind(this));
     this.renderer.render(this.scene, this.camera);
@@ -149,14 +162,15 @@ export class AppComponent implements OnInit {
              startPosition: Vector3,
              speedRecoveryCoefficient: number): void {
     const sphereGeometry = new SphereGeometry(this.ballRadius, 50, 50);
-    const sphereMaterial = new MeshStandardMaterial({color: this.colors[this.randomInteger(0, 5)]});
+    const sphereMaterial = new MeshPhongMaterial({color: this.colors[5]});
     const sphere = new Mesh(sphereGeometry, sphereMaterial);
     sphere.name = `ball`;
     this.ballsIDCounter += 1;
     sphere.castShadow = true;
     const ball = new Ball(this.ballsIDCounter, this.ballRadius,
       startSpeed, startAngle, startPosition, speedRecoveryCoefficient,
-      this.controls.airResistance, sphere, this.scene, horizontalAngle);
+      this.controls.airResistance, sphere, this.scene, horizontalAngle,
+      {length: this.controls.wallLength, height: 2, width: this.controls.wallDepth});
     this.scene.add(sphere);
     this.balls.push(ball);
     setTimeout(() => {
@@ -169,12 +183,11 @@ export class AppComponent implements OnInit {
     this.createBall(this.controls.startSpeed,
       this.controls.startAngle,
       this.controls.horizontalAngle,
-      new Vector3(0, 0, 0),
+      new Vector3(0, 20, 0),
       this.controls.speedRecoveryCoefficient);
   }
 
   ngOnInit(): void {
-    console.log(`may be?`);
     this.init();
     this.groundInit();
     this.lightInit();
@@ -186,63 +199,52 @@ export class AppComponent implements OnInit {
 
     this.controls = {
       startPosition: new Vector3(0, this.ballRadius, 0),
-      startAngle: 45,
-      horizontalAngle: 30,
+      startAngle: 30,
+      horizontalAngle: 0,
       startSpeed: 30,
       speedRecoveryCoefficient: 1,
-      airResistance: 0.1,
+      airResistance: 0,
       timeline: 0,
-      wallDepth: 40,
+      wallDepth: 30,
       wallLength: 25,
-      wallFar: 150,
-      ballGeneratingSpeed: 7 * 1000,
+      wallFar: 180,
+      ballGeneratingSpeed: 6 * 1000,
     };
 
-    const startGeometry = new CircleGeometry(this.ballRadius + 5, 50);
-    const startMaterial = new MeshStandardMaterial({ color: 0x2C2316 });
-    const startPoint = new Mesh(startGeometry, startMaterial);
-    startPoint.name = `startPoint`;
-    startPoint.receiveShadow = true;
-    startPoint.rotateX(-Math.PI / 2);
-    startPoint.position.y = -4.9;
-    this.scene.add(startPoint);
+    this.wallControls = {
+      aboveGround: 0,
+      wallFar: 40,
+      vertAngle: 90,
+      horizAngle: 0,
+      LRPosition: 0,
+    };
 
-    const horizLineGeometry = new CylinderGeometry(0.2, 0.2, 300);
-    const horizLineMaterial = new MeshBasicMaterial({ color: 0x000000 });
-    const horizLine = new Mesh(horizLineGeometry, horizLineMaterial);
-    horizLine.name = `horizLine`;
-    horizLine.rotation.z = Math.PI / 2;
-    startPoint.add(horizLine);
+    // const startGeometry = new CircleGeometry(5, 50);
+    // const startMaterial = new MeshStandardMaterial({color: 0x1E1E1E});
+    // const startPoint = new Mesh(startGeometry, startMaterial);
+    // startPoint.name = `startPoint`;
+    // startPoint.receiveShadow = true;
+    // startPoint.rotateX(-Math.PI / 2);
+    // startPoint.position.y = -4.9;
+    // this.scene.add(startPoint);
 
-    const vertLineGeometry = new CylinderGeometry(0.2, 0.2, 150);
-    const vertLineMaterial = new MeshBasicMaterial({ color: 0xFFFFFF });
-    const vertLine = new Mesh(vertLineGeometry, vertLineMaterial);
-    vertLine.name = `vertLine`;
-    vertLine.rotation.x = Math.PI / 2;
-    startPoint.add(vertLine);
+    // шарик
+    const sphereGeometry = new SphereGeometry(this.ballRadius, 50, 50);
+    const sphereMaterial = new MeshStandardMaterial({color: this.colors[5]});
+    const sphere = new Mesh(sphereGeometry, sphereMaterial);
+    sphere.name = `ball`;
+    sphere.position.set(-50, -50, 0);
+    this.scene.add(sphere);
+    // конец
 
-    const wallGeometry = new BoxGeometry(this.controls.wallLength * 2, 4, this.controls.wallDepth * 2, 50);
-    const wallMaterial = new MeshStandardMaterial({color: this.colors[this.randomInteger(0, 5)]});
-    const wall = new Mesh(wallGeometry, wallMaterial);
-    wall.castShadow = true;
-    wall.receiveShadow = true;
-    wall.position.x = this.controls.wallFar;
-    wall.position.y = this.controls.wallLength - 5;
-    wall.rotateZ(Math.PI / 2);
-    wall.name = "wall";
-    this.scene.add(wall);
-
-    const gui = new dat.GUI();
-    gui.width = 350;
-    gui.add(this.controls, "startAngle", 0, 180).name("угол наклона");
-    gui.add(this.controls, "startSpeed", 0, 100).name("начальная скорость");
-    gui.add(this.controls, "speedRecoveryCoefficient", 0, 1).name("восстановление скорости");
-    gui.add(this.controls, "airResistance", 0, 2).name("сопротивление воздуха");
-    gui.add(this.controls, "horizontalAngle", -90, 90).name("угол поворота");
-    gui.add(this.controls, "wallFar", 30, 200).name("близость стены");
-    this.start();
-
-    setInterval(this.start.bind(this), this.controls.ballGeneratingSpeed);
+    // this.start();
+    // setInterval(() => {
+    //   this.balls.forEach((ball) => {
+    //     ball.collision(new Vector3(wall.position.x - 2, wall.position.y - this.controls.wallLength, wall.position.z - this.controls.wallDepth),
+    //       new Vector3(wall.position.x + 2, wall.position.y + this.controls.wallLength, wall.position.z + this.controls.wallDepth));
+    //     ball.animate();
+    //   });
+    // }, 100);
 
     this.renderer.render(this.scene, this.camera);
     this.animate();
