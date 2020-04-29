@@ -1,5 +1,6 @@
 import { Component, HostListener, OnInit } from "@angular/core";
 import * as dat from "dat.gui";
+import { truncate } from "fs";
 import {
   AxesHelper, BoxGeometry, CircleGeometry, Color, CylinderGeometry, Fog, Mesh, MeshBasicMaterial, MeshPhongMaterial, MeshStandardMaterial,
   PerspectiveCamera, PointLight, Scene, SphereGeometry, Vector3, WebGLRenderer,
@@ -27,7 +28,9 @@ export class AppComponent implements OnInit {
   currentMaxAngle = Math.PI / 2;
   deltaX = 0;
   currentV = 0;
-  aDelta = 0.01;
+  aDelta = 0;
+  Vcoef = 0.00098;
+  bool = true;
   // конец
 
   colors = [
@@ -91,7 +94,7 @@ export class AppComponent implements OnInit {
   }
 
   orbitControlsInit(): void {
-    this.orbitControls.target = new Vector3(0, 0, 0);
+    this.orbitControls.target = new Vector3(-50, 0, 0);
     this.orbitControls.maxPolarAngle = Math.PI / 2;
     this.orbitControls.update();
   }
@@ -113,11 +116,11 @@ export class AppComponent implements OnInit {
     this.scene.background = new Color(0xCBCBCB);
     this.camera = new PerspectiveCamera(45,
       window.innerWidth / window.innerHeight, 0.1, 1000);
-    this.camera.position.x = 0;
+    this.camera.position.x = -50;
     this.camera.position.y = 70;
     this.camera.position.z = 200;
     this.axes = new AxesHelper(1000);
-    this.scene.add(this.axes);
+    // this.scene.add(this.axes);
     this.webGLOutput = <HTMLCanvasElement> document.getElementById("WebGL-Output");
     this.renderer = new WebGLRenderer({canvas: this.webGLOutput});
     this.renderer.shadowMap.enabled = true;
@@ -135,14 +138,26 @@ export class AppComponent implements OnInit {
 
     // движение шарика
     const ball = this.scene.getObjectByName("ball");
-    ball.position.x = -50 - 50 * Math.sin(this.currentAngle);
-    ball.position.y = 50 - 50 * Math.cos(this.currentAngle);
+    ball.position.x = -50 - 45 * Math.sin(this.currentAngle);
+    ball.position.y = 50 - 45 * Math.cos(this.currentAngle);
+
 
     this.currentAngle += this.aDelta;
     this.deltaX += Math.abs(this.aDelta);
-    this.currentV += Math.sign(this.currentAngle) * Math.sqrt(Math.pow(-9.81 * 1.1, 2) + Math.pow(0.1 * 9.81 * Math.cos(this.currentAngle), 2));
-    if (Math.abs(this.currentAngle) >= Math.PI / 2) {
-      this.aDelta = -this.aDelta;
+    this.aDelta -= Math.sign(this.currentAngle) * this.Vcoef;
+    if (Math.abs(this.currentAngle) <= this.currentMaxAngle) {
+      this.bool = true;
+    }
+    if (this.bool) {
+
+      this.currentV += Math.sign(this.currentAngle) * Math.sqrt(Math.pow(-9.81 * 1.1, 2) + Math.pow(0.1 * 9.81 * Math.cos(this.currentAngle), 2));
+      if (Math.abs(this.currentAngle) >= this.currentMaxAngle) {
+        this.aDelta = 0;
+        // this.aDelta = -this.aDelta;
+        this.currentMaxAngle *= 0.8;
+        this.Vcoef *= 0.8;
+        this.bool = false;
+      }
     }
     // конец
 
@@ -188,7 +203,6 @@ export class AppComponent implements OnInit {
 
   ngOnInit(): void {
     this.init();
-    this.groundInit();
     this.lightInit();
     this.orbitControlsInit();
 
@@ -236,6 +250,13 @@ export class AppComponent implements OnInit {
     this.scene.add(sphere);
     // конец
 
+    const zhelobGeomtry = new CylinderGeometry(50, 50, 50, 50, 50, true, Math.PI / 2, Math.PI);
+    const zhelobMaterial = new MeshStandardMaterial({color: this.colors[6], wireframe: true});
+    const zhelob = new Mesh(zhelobGeomtry, zhelobMaterial);
+    zhelob.rotateX(-Math.PI / 2);
+    zhelob.position.y = 50;
+    zhelob.position.x = -50;
+    this.scene.add(zhelob)
     // this.start();
     // setInterval(() => {
     //   this.balls.forEach((ball) => {
